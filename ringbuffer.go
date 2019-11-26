@@ -92,7 +92,9 @@ func (r *RingBuffer) write(p []byte) (int, error) {
 func (r *RingBuffer) writeRing(p []byte) (int, error) {
 	pLen, bufLen := len(p), len(r.buf)
 
-	// if we are writing more than the buf
+	// if we are going to write more than the buf size,
+	// we just need to keep the last bufLen bytes of the input slice
+	// cause the previous will be overwritten
 	if pLen > bufLen {
 		copy(r.buf, p[pLen-bufLen:])
 		r.pos = 0
@@ -101,16 +103,14 @@ func (r *RingBuffer) writeRing(p []byte) (int, error) {
 	}
 
 	// write to the end
-	copy(r.buf[r.pos:], p)
+	written := copy(r.buf[r.pos:], p)
+	r.pos = 0
 
-	remaining := bufLen - r.pos
-
-	// if still something to write
-	if pLen > remaining {
-		copy(r.buf, p[remaining:])
+	// if there is still something to write
+	if pLen > written {
+		r.pos = copy(r.buf, p[written:])
 	}
 
-	r.pos = (r.pos + pLen) % bufLen
 	r.written += pLen
 
 	return pLen, nil
