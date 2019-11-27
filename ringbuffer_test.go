@@ -1,9 +1,36 @@
 package ringbuffer
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
+
+func BenchmarkReadAsString(b *testing.B) {
+	rBuffer := NewRingBuffer(1024, 1024)
+
+	for i := 0; i < 200; i++ {
+		fmt.Fprintf(rBuffer, "%d", i)
+	}
+
+	benchmarkItems := []struct {
+		name     string
+		stringer fmt.Stringer
+	}{
+		{
+			name:     "github.com/lucianoq/ringbuffer",
+			stringer: rBuffer,
+		},
+	}
+	for _, bb := range benchmarkItems {
+
+		b.Run(bb.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = bb.stringer.String()
+			}
+		})
+	}
+}
 
 func TestNewRingBuffer(t *testing.T) {
 	t.Parallel()
@@ -363,6 +390,107 @@ func TestRingBuffer_String(t *testing.T) {
 			got := tt.inputBuffer.String()
 
 			if got != tt.want {
+				t.Errorf("Bytes() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRingBuffer_Bytes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		inputBuffer *RingBuffer
+		want        []byte
+	}{
+		{
+			name: "empty",
+			inputBuffer: &RingBuffer{
+				buf:      []byte{},
+				pos:      0,
+				written:  0,
+				ringMode: false,
+				maxSize:  4,
+			},
+			want: []byte{},
+		},
+		{
+			name: "shorter than buf",
+			inputBuffer: &RingBuffer{
+				buf:      []byte{'a', 'b', 'c', 0},
+				pos:      3,
+				written:  3,
+				ringMode: false,
+				maxSize:  4,
+			},
+			want: []byte("abc"),
+		},
+		{
+			name: "full buff, no ring",
+			inputBuffer: &RingBuffer{
+				buf:      []byte{'a', 'b', 'c', 'd'},
+				pos:      4,
+				written:  4,
+				ringMode: false,
+				maxSize:  4,
+			},
+			want: []byte("abcd"),
+		},
+		{
+			name: "full buff, ring mode, start on end",
+			inputBuffer: &RingBuffer{
+				buf:      []byte{'a', 'b', 'c', 'd'},
+				pos:      4,
+				written:  4,
+				ringMode: true,
+				maxSize:  4,
+			},
+			want: []byte("abcd"),
+		},
+		{
+			name: "full buff, ring mode, start on 0",
+			inputBuffer: &RingBuffer{
+				buf:      []byte{'a', 'b', 'c', 'd'},
+				pos:      0,
+				written:  4,
+				ringMode: true,
+				maxSize:  4,
+			},
+			want: []byte("abcd"),
+		},
+		{
+			name: "full buf, ring mode, start in the middle",
+			inputBuffer: &RingBuffer{
+				buf:      []byte{'e', 'b', 'c', 'd'},
+				pos:      1,
+				written:  5,
+				ringMode: true,
+				maxSize:  4,
+			},
+			want: []byte("bcde"),
+		},
+		{
+			name: "full buf, ring mode, start in the middle",
+			inputBuffer: &RingBuffer{
+				buf:      []byte{'a', 'b', '1', '2', '3', 'f', 'g'},
+				pos:      5,
+				written:  17,
+				ringMode: true,
+				maxSize:  7,
+			},
+			want: []byte("fgab123"),
+		},
+	}
+	for _, tt := range tests {
+		var tt = tt
+
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tt.inputBuffer.Bytes()
+
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Bytes() = %v, want %v", got, tt.want)
 			}
 		})

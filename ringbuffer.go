@@ -171,7 +171,7 @@ func makeSlice(n int) (b []byte, err error) {
 	return
 }
 
-// Bytes returns the buffer content in a slice of bytes.
+// Bytes returns a copy of the buffer content in a slice of bytes.
 func (r *RingBuffer) Bytes() []byte {
 	if r.ringMode {
 		out := make([]byte, r.maxSize)
@@ -180,13 +180,19 @@ func (r *RingBuffer) Bytes() []byte {
 		return out
 	}
 
-	return r.buf[:r.pos]
+	out := make([]byte, r.pos)
+	copy(out, r.buf[:r.pos])
+	return out
 }
 
 // String returns the buffer content as a string.
 // With this method RingBuffer implements the fmt.Stringer interface.
 func (r *RingBuffer) String() string {
-	return string(r.Bytes())
+	if r.ringMode {
+		return string(r.buf[r.pos:]) + string(r.buf[:r.pos])
+	}
+
+	return string(r.buf[:r.pos])
 }
 
 // Written returns the number of bytes written so far in the buffer.
