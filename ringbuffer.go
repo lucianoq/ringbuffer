@@ -104,7 +104,7 @@ func (r *RingBuffer) writeRing(p []byte) (int, error) {
 
 	// write to the end
 	written := copy(r.buf[r.pos:], p)
-	r.pos = 0
+	r.pos += written
 
 	// if there is still something to write
 	if pLen > written {
@@ -174,7 +174,10 @@ func makeSlice(n int) (b []byte, err error) {
 // Bytes returns the buffer content in a slice of bytes.
 func (r *RingBuffer) Bytes() []byte {
 	if r.ringMode {
-		return append(r.buf[r.pos:], r.buf[:r.pos]...)
+		out := make([]byte, r.maxSize)
+		copy(out, r.buf[r.pos:])
+		copy(out[r.maxSize-r.pos:], r.buf[:r.pos])
+		return out
 	}
 
 	return r.buf[:r.pos]
